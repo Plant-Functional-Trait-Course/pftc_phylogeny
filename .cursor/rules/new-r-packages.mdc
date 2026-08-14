@@ -1,0 +1,30 @@
+---
+description: New R packages — _targets.R, QMD setup, renv lockfile
+alwaysApply: true
+---
+
+# New R packages
+
+When introducing a package that targets or Quarto will need:
+
+## 1. Pipeline / `R/` code — register in `_targets.R` only
+
+- Add the package name to **`tar_option_set(packages = c(...))`** in `_targets.R`.
+- **Do not** add `library(pkg)` scattered in `R/` pipeline code; workers load packages from that vector. Using `pkg::fun()` in sourced scripts is fine once the package is listed there.
+
+## 2. Quarto (`.qmd`) — setup chunk
+
+- If the **qmd executes code** that needs the package (not only `tar_read()` of pre-built objects), add **`library(pkg)`** (or the minimal imports you need) in the **setup chunk at the top** of that file (same pattern as `results_new.qmd`: label like `set-up-...`, `echo: false`).
+
+## 3. Install and lock with renv
+
+- If the package is **not** already in the project library / `renv.lock`:
+  1. Install in the project environment, e.g. **`renv::install("pkg")`** (or `renv::install("user/repo")` for GitHub).
+  2. **Update the lockfile**: **`renv::snapshot()`** so `renv.lock` records the new dependency.
+- After that, commit `renv.lock` (and any `renv/` changes if applicable) so others reproduce the same versions.
+
+## Checklist
+
+- [ ] Package added to `_targets.R` → `packages = c(...)`
+- [ ] If used directly in a qmd → `library(pkg)` in that qmd’s setup chunk
+- [ ] If not installed → `renv::install("pkg")` then `renv::snapshot()`

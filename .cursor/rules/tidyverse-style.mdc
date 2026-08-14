@@ -1,0 +1,31 @@
+---
+description: Prefer tidyverse style for new R code
+alwaysApply: true
+---
+
+# Tidyverse Style for New Code
+
+When adding or editing R code, default to tidyverse conventions.
+
+- Use pipes (`|>`) for multi-step data workflows.
+- Prefer `dplyr` verbs (`select`, `filter`, `mutate`, `summarise`, `group_by`, `arrange`) over base R equivalents in pipeline code.
+- Use `tidyr` for reshaping (`pivot_longer`, `pivot_wider`) and be explicit about IDs/fills when needed.
+- Keep one transformation per line in pipelines for readability.
+- Use explicit `na.rm = TRUE` in summaries where missing values may occur.
+- End grouped operations with `.groups = "drop"` unless grouping should persist.
+- Prefer descriptive, snake_case object names.
+
+## Example
+
+```r
+# Good
+dat_summary <- dat |>
+  filter(!is.na(value)) |>
+  group_by(siteID, treatment) |>
+  summarise(mean_value = mean(value, na.rm = TRUE), .groups = "drop")
+```
+
+```r
+# Avoid for new workflow code
+dat_summary <- aggregate(value ~ siteID + treatment, dat, mean)
+```

@@ -1,0 +1,28 @@
+---
+description: Fix targets pipeline issues at the source, not downstream
+alwaysApply: true
+---
+
+# Fix Pipeline Problems at the Root
+
+When a target in the pipeline fails or behaves unexpectedly, **fix the cause upstream**, not by patching the failing step.
+
+- Trace the dependency chain: identify which earlier target produces the problematic data.
+- Fix the root (e.g. transformation plan, download step, or data prep) so the data is correct before it reaches the failing target.
+- Do **not** fix issues only at the end of the pipeline (e.g. dropping NAs or aggregating duplicates right before an analysis).
+
+## Examples
+
+**Bad:** Analysis fails due to NAs → add `filter(!is.na(value))` or `na.rm = TRUE` only in the analysis target.
+
+**Good:** Find why NAs appear (e.g. missing joins, wrong grouping, replicates not averaged in the transformation plan) and fix that target so the data is complete and one row per unit before it reaches the analysis.
+
+**Bad:** `pivot_wider` errors because of duplicate rows → add `group_by(...) |> summarise(...)` only in the step that does `pivot_wider`.
+
+**Good:** Ensure upstream targets (e.g. cflux, or the targets that feed into `big_data`) already output one row per logical unit (e.g. per year × plot × treatment) by averaging replicates or resolving duplicates in the transformation plan.
+
+## Checklist
+
+- Where does the bad data (NAs, duplicates, wrong shape) first appear?
+- Fix that target (or the target that feeds it).
+- Re-run from the fixed target; downstream steps should then work without extra filters or aggregation.

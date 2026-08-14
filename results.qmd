@@ -1,0 +1,540 @@
+---
+title: "Understanding community assemblage using species and functional diversity across elevational gradients from the tropics to the arctic"
+format:
+    html:
+      self-contained: true
+  # pdf:
+  #   documentclass: article
+editor: visual
+execute:
+  echo: false
+  error: true
+  out-width: '100%'
+---
+
+```{r}
+#| label: set-up
+#| echo: false
+#| message: false
+#| warning: false
+
+suppressPackageStartupMessages({
+  library(targets)
+  library(tarchetypes)
+  library(gt)
+  library(dplyr)
+  library(tidyr)
+  library(patchwork)
+})
+
+```
+
+## Introduction
+
+Species and functional diversity are different metrics describing biodiversity and ecosystem function and they are affected by both abiotic and biotic filtering as well as the regional species pool. These metrics can be used to understand how plant communities respond to different filters and how communities assemble along broad environmental gradients.
+
+We assessed plant Shannon diversity and functional traits (i.e. community weighted means and variance in leaf functional traits) along five elevational gradients in the arctic (Svalbard), boreal (Norway), temperate (Colorado), sub-tropics (China) and tropic mountains (Peru). Specifically, we ask how plant communities respond to the environmental drivers along elevational gradients in terms of species and functional diversity, and how consistent these patterns are across a broad latitudinal gradient from the tropics to the arctic. And what is the importance of intraspecific trait variation.
+
+## Methods
+
+### Study systems and sites
+
+Description of the study systems and sites.
+
+We studied the following ecosystems/countries: arctic (PFTC4 Svalbard), boreal (PFTC6 Norway), temperate (Colorado), sub-tropics (PFTC1 and 2 China) and tropics (PFTC3, Puna project and PFCT5 Peru).
+
+```{r}
+#| label: fig-study-sites-map
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-height: 6
+#| fig-cap: "World map showing all the regions."
+
+tar_load(regions_world_map)
+regions_world_map
+
+```
+
+### Data collection
+
+**Plant community and functional traits** We collected data on species community composition and functional leaf trait data from all PFTC courses and RMBL in Colorado. Describe data collection and refer to data papers. Describe which gradinets were used, e.g. Svalbard only control, not bird cliff, Peru not recently burned, etc. There are no chemical traits from Norway and South Africa yet, and these countries were excluded from the multivariate analysis.
+
+```{r}
+#| label: fig-trait-distribution
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-height: 12
+#| fig-width: 8
+#| fig-cap: "Distribution of trait values for different elevational bands. The colours indicated the regions. The size traits are log transformed."
+
+tar_load(trait_distribution_ridgeline_fig)
+trait_distribution_ridgeline_fig
+
+```
+
+**Climate data** growing-season climate variables were derived from the hourly climate extract for each plot. We first aggregated the hourly data to daily mean, minimum and maximum temperature and mean VPD. The growing season was then defined as the longest continuous run of at least five days with daily mean temperature above 5 °C (the conventional thermal growing season). Short cold snaps embedded within the season — below-threshold runs shorter than five days that are flanked by warm spells — were bridged and counted as part of the growing season, so that brief mid-season cold spells do not truncate it. Southern Hemisphere sites (Peru and South Africa) were rotated to a July–June year so the austral summer forms a contiguous run within the single calendar year of data. Within each plot's growing-season window we computed: growing-season length (days), growing-season temperature (mean daily temperature), growing-season VPD (mean daily VPD), growing degree days (sum of daily mean temperature above the 5 °C base), and the mean diurnal temperature range (mean daily maximum minus minimum). Climate variables were matched to community and trait data at the plot level, falling back to the site mean for plots without a direct climate match. Here we summarise them against site-level mean latitude.
+
+```{r}
+#| label: fig-climate-latitude
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "Growing-season climate variables (length, temperature, VPD, growing degree days and diurnal range) versus site latitude. The colours show the regions and point size shows the elevation percentile, with low values indicating low elevation."
+
+tar_load(climate_latitude_fig)
+climate_latitude_fig
+
+```
+
+```{r}
+#| label: fig-climate-seasonality
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "Mean daily temperature through the year for each country (averaged across plots), ordered so the growing season is contiguous (Southern Hemisphere sites shifted to a July–June year). All panels share the same y-axis for comparison. The dashed line marks the 5 °C growing-season threshold. The lighter bar spans the shortest to longest growing season across sites within each country; the darker bar shows the country mean window, labelled with the mean length in days."
+
+tar_load(climate_seasonality_fig)
+climate_seasonality_fig
+
+```
+
+```{r}
+#| label: tab-region-climate-summary
+#| echo: false
+#| warning: false
+#| message: false
+
+tar_load(region_climate_summary_table)
+region_climate_summary_table
+
+```
+
+### Data analysis
+
+Shannon diversity was calcualted using the vegan pacakge (REF).
+
+Size traits were log transformed. Trait means and higher moments were calculated using a trait imputation and bootstrapping with traitstrap (Maitner et al. 2023).
+
+Community-weighted mean traits were ordinated with PCA (`vegan::rda`, scaled and centred) on plots with complete trait data. We ran two ordinations: (1) all countries, excluding leaf P, N:P, and plant height (not available at every site); and (2) countries with full chemical trait coverage (Norway and South Africa excluded), excluding plant height only. Scree plots show the variance explained by each principal component; for the all-country ordination, PC1 and PC2 together account for most of the variation, so multivariate trait–climate models use PC1 and PC2 as responses.
+
+```{r}
+#| label: fig-trait-pca-scree
+#| echo: false
+#| warning: false
+#| fig-height: 5
+#| fig-cap: "Scree plots for both trait PCAs, showing the percentage of variance explained by each principal component axis."
+
+tar_load(trait_pca_scree_fig)
+trait_pca_scree_fig
+
+```
+
+Run mixed-effects models for diversity and traits vs. climate and latitude. Run a global model across all regions and regional models for each region. Multivariate trait–climate models use the same structure with PCA axis scores as the response.
+
+\newpage
+
+## Results
+
+### Plant diversity
+
+Shannon diversity decreases with latitude and shows no significant relationship with growing-season temperature or vapour pressure deficit.
+
+```{r}
+#| label: fig-diversity-climate-all
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-height: 10
+#| fig-width: 11
+#| fig-cap: "Shannon diversity versus latitude and all five growing-season climate variables. Points show raw data; coloured lines are regional model predictions and the grey line is the global model. Solid lines indicate a significant predictor term (p < 0.05); dashed lines are non-significant."
+
+tar_load(diversity_climate_five_panel_fig)
+diversity_climate_five_panel_fig
+
+```
+
+### Functional leaf traits
+
+-   Size traits decrease with elevation
+
+-   LDMC increases and SLA decreases with elevation
+
+-   Carbon and nutrient show different patterns with elevation across the regions.
+
+The PCA across all regions (excluding leaf P and N:P, which are not available at every site) shows that size and leaf economic traits are largely perpendicular. Regions separate along the leaf economics axis, with colder sites tending toward higher SLA and lower LDMC, and warmer sites toward taller stature and more conservative leaf traits.
+
+```{r}
+#| label: fig-trait-pca-full
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-cap: "Principal component analysis for all regions, excluding leaf P and N:P. Regions are coloured and an ellipse is drawn for each region. Arrows indicate trait loadings; linetype distinguishes size (solid), leaf economic (dashed), and isotope (dotted) traits. Point size indicates elevational percentile within each region."
+
+tar_load(trait_pca_full_fig)
+trait_pca_full_fig
+
+```
+
+\newpage
+
+With Norway and South Africa excluded, the full chemical and morphological trait set (including leaf P and N:P, but excluding plant height, which is not available for China) can be used. PC axis 1 aligns with leaf economic traits (SLA, LDMC, leaf C, N, P, and thickness), while PC axis 2 aligns with size traits and dN15. Colder sites tend to have smaller leaves and higher SLA; warmer sites tend to have larger leaves and higher LDMC.
+
+```{r}
+#| label: fig-trait-pca
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-cap: "Principal component analysis at sites with leaf P and N:P (Norway and South Africa excluded; plant height omitted because it is not available for China). Regions are coloured and an ellipse is drawn for each region. Arrows indicate trait loadings; linetype distinguishes size (solid), leaf economic (dashed), and isotope (dotted) traits. Point size indicates elevational percentile within each region."
+
+tar_load(trait_pca_fig)
+trait_pca_fig
+
+```
+
+\newpage
+
+-   Plant height, dry mass, leaf area and dC13 show a unimodal global relationship with mean annual temperature, showing highest values at intermediate temperatures
+
+-   NP decreases and dN15 increases globally with mean annual temperature
+
+-   The regional models show a close correlation with the global model for dry mass and leaf area.
+
+-   CN shows significant regaional relationship with mean annual temperature, but showing a reversed unimodal relationship (U shaped)
+
+-   Leaf P decreases with mean annual temperature, but only regionally
+
+-   Leaf thickness, SLA, LDMC, leaf C, and N show no global or regional relationship with mean annual temperature
+
+Trait–climate relationships are shown below for each growing-season climate variable: first community-weighted mean traits, then multivariate PCA axes (PC1 and PC2 from the all-country ordination).
+
+```{r}
+#| label: load-trait-climate-figs
+#| echo: false
+#| include: false
+
+tar_load(trait_climate_figs)
+tar_load(trait_pca_full_climate_figs)
+
+```
+
+#### Growing season length (days)
+
+##### Individual traits
+
+```{r}
+#| label: fig-trait-climate-gs-length
+#| echo: false
+#| warning: false
+#| fig-height: 9
+#| fig-width: 12
+
+trait_climate_figs$gs_length
+
+```
+
+##### Multivariate (PCA axes)
+
+```{r}
+#| label: fig-trait-pca-climate-gs-length
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-width: 12
+
+trait_pca_full_climate_figs$gs_length
+
+```
+
+\newpage
+
+#### Growing season temperature (°C)
+
+##### Individual traits
+
+```{r}
+#| label: fig-trait-climate-gs-temperature
+#| echo: false
+#| warning: false
+#| fig-height: 9
+#| fig-width: 12
+
+trait_climate_figs$gs_temperature
+
+```
+
+##### Multivariate (PCA axes)
+
+```{r}
+#| label: fig-trait-pca-climate-gs-temperature
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-width: 12
+
+trait_pca_full_climate_figs$gs_temperature
+
+```
+
+\newpage
+
+#### Growing season VPD
+
+##### Individual traits
+
+```{r}
+#| label: fig-trait-climate-gs-vpd
+#| echo: false
+#| warning: false
+#| fig-height: 9
+#| fig-width: 12
+
+trait_climate_figs$gs_vpd
+
+```
+
+##### Multivariate (PCA axes)
+
+```{r}
+#| label: fig-trait-pca-climate-gs-vpd
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-width: 12
+
+trait_pca_full_climate_figs$gs_vpd
+
+```
+
+\newpage
+
+#### Growing degree days (\>5°C)
+
+##### Individual traits
+
+```{r}
+#| label: fig-trait-climate-gdd
+#| echo: false
+#| warning: false
+#| fig-height: 9
+#| fig-width: 12
+
+trait_climate_figs$gdd
+
+```
+
+##### Multivariate (PCA axes)
+
+```{r}
+#| label: fig-trait-pca-climate-gdd
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-width: 12
+
+trait_pca_full_climate_figs$gdd
+
+```
+
+\newpage
+
+#### Diurnal range (°C)
+
+##### Individual traits
+
+```{r}
+#| label: fig-trait-climate-gs-diurnal-range
+#| echo: false
+#| warning: false
+#| fig-height: 9
+#| fig-width: 12
+
+trait_climate_figs$gs_diurnal_range
+
+```
+
+##### Multivariate (PCA axes)
+
+```{r}
+#| label: fig-trait-pca-climate-gs-diurnal-range
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-width: 12
+
+trait_pca_full_climate_figs$gs_diurnal_range
+
+```
+
+### Intraspecific trait variation (ITV)
+
+Trait sampling coverage by region. We do not have plot level trait data from China, and partly from Colorado and Norway. Comparing ITV between regions is therefore complicated.
+
+```{r}
+#| label: fig-trait-coverage
+#| echo: false
+#| warning: false
+#| fig-height: 10
+#| fig-width: 12
+#| fig-cap: "Proportion of trait data sampled at the plot, site, gradient and regional level, by plot within each country."
+
+tar_load(trait_coverage_fig)
+trait_coverage_fig
+
+```
+
+```{r}
+#| label: fig-itv-variance
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-cap: "Variance partitioning for different plant functional traits on raw observations, split into region, site, plot, between-species, and within-species components. South Africa plot keys distinguish east and west aspects that share the same plot_id."
+
+tar_load(itv_variance_plot)
+itv_variance_plot
+
+```
+
+```{r}
+#| label: fig-leps-itv
+#| echo: false
+#| warning: false
+#| fig-height: 6
+#| fig-width: 12
+
+tar_load(leps_itv_plot)
+leps_itv_plot
+
+```
+
+## Trait Model Results
+
+```{r}
+#| label: tab-trait-results
+#| echo: false
+#| warning: false
+#| message: false
+
+tar_load(trait_climate_results_table)
+trait_results_table <- trait_climate_results_table
+
+trait_gt <- trait_results_table |>
+  arrange(predictor_clean, model_scope, trait_clean, term_clean) |>
+  select(-is_significant) |>
+  gt() |>
+  tab_header(
+    title = "Trait–climate model results",
+    subtitle = paste(
+      "AIC-selected linear or polynomial mixed-effects models.",
+      "Climate predictors were mean-centred within each climate variable before fitting;",
+      "coefficients refer to the centred scale.",
+      "Global models: trait ~ climate + (1 | site).",
+      "Regional models: trait ~ climate + region + (1 | site).",
+      "Polynomial models show separate rows for the linear and squared climate terms.",
+      "Bold rows indicate p < 0.05."
+    )
+  ) |>
+  cols_label(
+    predictor_clean = "Climate variable",
+    model_scope = "Model scope",
+    model_type_clean = "Model",
+    trait_clean = "Trait",
+    term_clean = "Term",
+    estimate = "Estimate",
+    std.error = "SE",
+    statistic = "t-statistic",
+    df = "df",
+    p.value = "p-value"
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = everything(),
+      rows = trait_results_table$is_significant
+    )
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_body(columns = c(estimate, std.error, statistic, df, p.value))
+  ) |>
+  tab_options(
+    table.font.size = 11,
+    heading.title.font.size = 14,
+    heading.subtitle.font.size = 12,
+    column_labels.font.weight = "bold"
+  )
+
+trait_gt
+
+```
+
+### PCA axis–climate models
+
+```{r}
+#| label: tab-trait-pca-climate-results
+#| echo: false
+#| warning: false
+#| message: false
+
+tar_load(trait_pca_full_climate_results_table)
+pca_trait_results_table <- trait_pca_full_climate_results_table
+
+pca_trait_gt <- pca_trait_results_table |>
+  arrange(predictor_clean, model_scope, trait_clean, term_clean) |>
+  select(-is_significant) |>
+  gt() |>
+  tab_header(
+    title = "PCA axis–climate model results (all countries)",
+    subtitle = paste(
+      "AIC-selected linear or polynomial mixed-effects models for PC1 and PC2",
+      "from the all-country trait PCA (leaf P, N:P, and plant height excluded).",
+      "Climate predictors were mean-centred within each climate variable before fitting.",
+      "Bold rows indicate p < 0.05."
+    )
+  ) |>
+  cols_label(
+    predictor_clean = "Climate variable",
+    model_scope = "Model scope",
+    model_type_clean = "Model",
+    trait_clean = "PCA axis",
+    term_clean = "Term",
+    estimate = "Estimate",
+    std.error = "SE",
+    statistic = "t-statistic",
+    df = "df",
+    p.value = "p-value"
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = everything(),
+      rows = pca_trait_results_table$is_significant
+    )
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_body(columns = c(estimate, std.error, statistic, df, p.value))
+  ) |>
+  tab_options(
+    table.font.size = 11,
+    heading.title.font.size = 14,
+    heading.subtitle.font.size = 12,
+    column_labels.font.weight = "bold"
+  )
+
+pca_trait_gt
+
+```
