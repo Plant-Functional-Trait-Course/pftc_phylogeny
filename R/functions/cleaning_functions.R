@@ -36,7 +36,7 @@ clean_pe_community <- function(raw_community_pe) {
       taxon = tolower(taxon),
       gradient = "C"
     ) |>
-    tidylog::select(country, region, year, season, month, treatment, gradient, site, plot_id, functional_group, family, taxon, cover, elevation_m = elevation, latitude_n = latitude, longitude_e = longitude, ecosystem)
+    tidylog::select(country, region, year, month, treatment, gradient, site, plot_id, functional_group, family, taxon, cover, elevation_m = elevation, latitude_n = latitude, longitude_e = longitude, ecosystem)
 }
 
 
@@ -256,7 +256,7 @@ clean_sa_community <- function(raw_community_sa, raw_meta_sa_extended) {
     ungroup() |>
     select(
       country, region, year, date, gradient, site, plot_id, taxon, cover, aspect,
-      fertility_all, elevation_m = elevation_m_asl, latitude_n = latitude,
+      elevation_m = elevation_m_asl, latitude_n = latitude,
       longitude_e = longitude, ecosystem
     )
 }
