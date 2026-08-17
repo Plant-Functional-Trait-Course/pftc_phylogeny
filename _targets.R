@@ -26,7 +26,6 @@ combined_plan <- c(
   import_plan,
   cleaning_plan,
   transformation_plan,
-  climate_data_plan
   # si_figures_plan#,
   # manuscript_plan
 )
