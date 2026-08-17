@@ -44,7 +44,7 @@ import_plan <- list(
   # community
   tar_target(
     name = raw_community_co,
-    command = read_csv("data/Abundance_Data_2016_final.csv")
+    command = read_excel(download_community_co)
   ),
 
   # meta

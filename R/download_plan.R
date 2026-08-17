@@ -88,6 +88,25 @@ download_plan <- list(
     command = create_threed_meta_data()
   ),
 
+  # Colorado Data
+  # community data from Google Drive folder:
+  # https://drive.google.com/drive/folders/1P-ND3-V0SSN7kgB2ia5UW5wB0nkZkvE5
+  tar_target(
+    name = download_community_co,
+    command = {
+      dest <- "data/RMBL_2022_abundance.xlsx"
+      dir.create("data", showWarnings = FALSE)
+      googledrive::drive_deauth()
+      googledrive::drive_download(
+        file = googledrive::as_id("1c9RP3-BBLrfIjiODFrKSQmrb3e0QJCEP"),
+        path = dest,
+        overwrite = TRUE
+      )
+      dest
+    },
+    format = "file"
+  ),
+
   # South Africa Data
   # community data
   tar_target(

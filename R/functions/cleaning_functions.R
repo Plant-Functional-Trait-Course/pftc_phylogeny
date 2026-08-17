@@ -198,23 +198,30 @@ clean_no_comm <- function(raw_community_no, sp_list_no) {
 clean_colorado_community <- function(raw_community_co, coords_co) {
   raw_community_co |>
     clean_names() |>
-    select(-common_name_morpho, -total, -photo_taken, -specimen_collected) |>
-    pivot_longer(cols = c(plot_1:plot_5), names_to = "plot_id", values_to = "cover") |>
+    filter(!is.na(site), site != "") |>
+    mutate(site = recode(site, "Almont (peak)" = "Almont")) |>
+    pivot_longer(cols = matches("^plot_[1-5]$"), names_to = "plot_id", values_to = "cover") |>
     rename(taxon = species) |>
     mutate(
-      date = dmy(date),
+      date_chr = as.character(date),
+      date = coalesce(
+        mdy(date_chr, quiet = TRUE),
+        ymd(date_chr, quiet = TRUE),
+        as.Date(suppressWarnings(as.numeric(date_chr)), origin = "1899-12-30")
+      ),
       country = "co",
       region = "Rocky Mountains",
       ecosystem = "temperate",
       gradient = "C",
       year = year(date)
     ) |>
+    select(-date_chr) |>
     mutate(
       plot_id = str_replace(plot_id, "plot_", ""),
       site = paste0(country, "_", site),
       plot_id = paste0(site, "_", plot_id)
     ) |>
-    filter(!is.na(cover), !cover == 0) |>
+    filter(!is.na(cover), cover != 0) |>
     tidylog::left_join(coords_co) |>
     select(country, region, year, date, gradient, site, plot_id, taxon, cover, elevation_m, latitude_n, longitude_e, ecosystem)
 }
