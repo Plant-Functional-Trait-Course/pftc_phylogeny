@@ -37,6 +37,31 @@ downscaled_climate_add_site_keys <- function(dat) {
 }
 
 
+#' Copy Svalbard site 2 climate onto site 1 (no C1 extract exists).
+#'
+#' Duplicates `sv_C_2` rows and rewrites `site` / `plot_id` to `sv_C_1` so a later
+#' community join finds climate for site 1. Plot letters are kept (`C_sv_C_2_A`
+#' becomes `C_sv_C_1_A`). Community plots F and G have no C2 counterpart.
+#'
+#' Call this after [downscaled_climate_add_site_keys()] and after dropping NAs.
+fill_svalbard_c1_climate_from_c2 <- function(dat) {
+  c2 <- dat |>
+    filter(country == "sv", site == "sv_C_2")
+
+  if (nrow(c2) == 0) {
+    return(dat)
+  }
+
+  c1 <- c2 |>
+    mutate(
+      site = "sv_C_1",
+      plot_id = str_replace(plot_id, "sv_C_2", "sv_C_1")
+    )
+
+  bind_rows(dat, c1)
+}
+
+
 #' Trait/community `plot_id` used to join climate at plot resolution.
 #'
 #' China community uses a `-C` suffix on control turfs; climate and traits use the
