@@ -12,8 +12,7 @@ cleaning_plan <- list(
   # clean community
   tar_target(
     name = community_pe,
-    command = clean_pe_community(raw_community_pe) |>
-      filter(treatment != "B" | site == "pe_B_QUE")
+    command = clean_pe_community(raw_community_pe)
   ),
 
   # China
