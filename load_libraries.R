@@ -2,8 +2,6 @@
 library(tidyverse)
 library(vegan)
 library(ggvegan)
-library(traitstrap)
-library(dataDocumentation)
 library(readxl)
 library(broom)
 library(broom.mixed)

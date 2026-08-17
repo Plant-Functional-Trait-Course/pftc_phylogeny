@@ -1,26 +1,23 @@
-# Gradient Traits: Community and Functional Diversity Across Elevational Gradients
+# Phylogenetic Structure of Plant Communities Along Elevational Gradients: Context-Dependent Patterns from a Global Mountain Network
 
-This repository contains the code and data pipeline for analyzing plant community assemblage and functional diversity across elevational gradients, spanning ecosystems from the tropics to the arctic. The project leverages the [`targets`](https://docs.ropensci.org/targets/) R package for reproducible workflows.
+This repository contains the code and data pipeline for analyzing phylogenetic structure of plant communitites along elevational gradients. The project leverages the [`targets`](https://docs.ropensci.org/targets/) R package for reproducible workflows.
 
-## Project Overview
+## Abstract
 
-We assess plant species diversity (Shannon diversity and sum of cover; richness and evenness are omitted because plot sizes differ across studies) and functional diversity (community weighted means and variance in leaf functional traits) along five elevational gradients in the following ecosystems/countries:
+Phylogenetic structure of communities helps to improve our understanding of biodiversity maintenance by providing insights about how species respond to constraining and changing conditions . Mountain gradients provide a great opportunity to study community assembly processes as they act as environmental filters, shifting from benign to increasingly stressful within relatively short distances. Because tolerance to harsh conditions is often phylogenetically conserved, the phylogenetic structure of communities is expected to change from overdispersed to clustered with increasing elevations. However, other biotic and abiotic pressures might change the expected patterns of the stress gradient model. 
 
-- **Arctic:** Svalbard (PFTC4)
-- **Boreal:** Norway (PFTC6)
-- **Temperate:** Colorado (RMBL)
-- **Sub-tropics:** China (PFTC1 & 2)
-- **Tropics:** Peru (PFTC3, Puna, PFTC5)
+In this study, we asked how community phylogenetic structure changed along elevational gradients, and how this relationship varied with fire history and topography. Across eight field campaigns in South America, North America, Europe, Asia, and Africa, we measured community compositional changes along elevational gradients that collectively span from 0 to 5000 m a.s.l., although each individual gradient covers a narrower range. We quantified community phylogenetic structure using abundance weighted and non-abundance-weighted mean phylogenetic distance and mean nearest taxon distance (MNTD), as well as phylogenetic beta diversity. We then tested multiple predictors to identify which best predicted community phylogenetic structure, and whether “harsher” environmental conditions resulted in the hypothesized increase in clustering due to filtering.
 
-The main research questions are:
-- How do plant communities respond to environmental drivers along elevational gradients in terms of species and functional diversity?
-- How consistent are these patterns across a broad latitudinal gradient from the tropics to the arctic?
+We find that the relationships between phylogenetic structure and elevation were highly heterogeneous, with different gradients showing responses that differed in slope, magnitude, and shape (unimodal vs linear). Site identity explained a large portion of beta-MNTD variation, underscoring that the evolutionary distance between regional floras far exceeds any within-mountain gradient effect. The interaction between fire regime and elevation was consistent with a post-disturbance weakening of environmental filtering: fire reset community composition and resulted in a less
+taxonomically-filtered set of species. When comparing topographic effects, we found that aspect structures community phylogenetic structure above and beyond elevation.
+
+Our results suggest that community phylogenetic assembly varies strongly with elevation, but this relationship is not uniform and instead modulated by additional biotic and abiotic factors. Together, these dynamics highlight how the interplay between evolutionary history and ecological processes shapes biodiversity patterns across elevational gradients. 
+
 
 ## Data
 
 The pipeline downloads, imports, cleans, and analyzes data from multiple sources and ecosystems, including:
 - Community composition
-- Functional leaf traits
 - Climate data (hourly climate extract, summarised to growing-season variables)
 
 ## Pipeline Structure
@@ -29,7 +26,7 @@ The analysis is organized using the `targets` package, with plans for:
 - **Download:** Automated retrieval of raw data files
 - **Import:** Reading and initial formatting of data
 - **Cleaning:** Standardizing and filtering datasets
-- **Transformation:** Merging, calculating diversity indices, trait imputation, and bootstrapping
+- **Transformation:** Merging and calculating diversity indices
 - **Analysis:** Statistical modeling and visualization
 
 Custom functions for cleaning and processing are located in `R/Functions/`.
@@ -39,13 +36,15 @@ Custom functions for cleaning and processing are located in `R/Functions/`.
 ### Prerequisites
 
 - R (>= 4.0)
-- R packages: `targets`, `tarchetypes`, `tidyverse`, `dataDownloader`, `DBI`, `RSQLite`, `janitor`, `vegan`, `ggvegan`, `traitstrap`, `dataDocumentation`, `readxl`, `broom`, `glue`, and others as specified in `_targets.R`.
+- R packages: `targets`, `tarchetypes`, `dataDownloader`, `tidyverse`, `DBI`, `RSQLite`, `janitor`, `vegan`, `ggvegan`, `readxl`, `broom`, `broom.mixed`, `glue`, `geodata`, `terra`, `MetBrewer`, `maps`, `performance`, `quarto`, `see`, `rgee`, `sf`, `lmerTest`, `gt`, `ggridges`, `patchwork`, `betapart`, and `plotbiomes` (as specified in `_targets.R`).
 
 ### Running the Pipeline
 
 1. **Install dependencies** (in R):
    ```r
-   install.packages(c("targets", "tarchetypes", "tidyverse", "dataDownloader", "DBI", "RSQLite", "janitor", "vegan", "ggvegan", "traitstrap", "dataDocumentation", "readxl", "broom", "glue"))
+   install.packages(c("targets", "tarchetypes", "tidyverse", "DBI", "RSQLite", "janitor", "vegan", "ggvegan", "readxl", "broom", "broom.mixed", "glue", "geodata", "terra", "MetBrewer", "maps", "performance", "quarto", "see", "rgee", "sf", "lmerTest", "gt", "ggridges", "patchwork", "betapart"))
+   remotes::install_github("Between-the-Fjords/dataDownloader")
+   remotes::install_github("valentinitnelav/plotbiomes")
    ```
 
 2. **Run the pipeline** (from the project root):
@@ -63,11 +62,11 @@ Custom functions for cleaning and processing are located in `R/Functions/`.
 ## Project Structure
 
 ```
-gradient_traits/
+pftc_phylogeny/
 ├── _targets.R           # Main targets pipeline definition
 ├── run.R                # Script to run the pipeline
 ├── R/                   # R scripts for plans and functions
-│   ├── Functions/       # Custom function scripts
+│   ├── functions/       # Custom function scripts
 │   └── ...              # Plan scripts (analysis, cleaning, etc.)
 ├── data/                # Raw and processed data (mostly gitignored)
 ├── results_files/       # Output files (gitignored)
@@ -80,8 +79,3 @@ gradient_traits/
 - The pipeline is fully reproducible using the `targets` workflow.
 - Data files are managed via automated download scripts.
 - Intermediate and final results are cached for efficiency.
-
-## References
-
-- Maitner, B. S., et al. (2023). traitstrap: An R package for trait imputation and bootstrapping.
-- [targets package documentation](https://docs.ropensci.org/targets/) 

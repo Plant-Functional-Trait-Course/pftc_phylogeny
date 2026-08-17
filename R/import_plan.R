@@ -1,12 +1,6 @@
 import_plan <- list(
 
   # Svalbard Data
-  # trait data
-  tar_target(
-    name = raw_traits_sv,
-    command = read_csv(download_traits_sv)
-  ),
-
   # community data
   tar_target(
     name = raw_community_sv,
@@ -14,12 +8,6 @@ import_plan <- list(
   ),
 
   # Peru Data
-  # trait data
-  tar_target(
-    name = raw_traits_pe,
-    command = read_csv(download_traits_pe)
-  ),
-
   # community data
   tar_target(
     name = raw_community_pe,
@@ -27,16 +15,6 @@ import_plan <- list(
   ),
 
   # China Data
-  # trait data
-  tar_target(
-    name = raw_traits_leaf_ch,
-    command = read_csv(download_traits_leaf_ch)
-  ),
-  tar_target(
-    name = raw_traits_chem_ch,
-    command = read_csv(download_traits_chem_ch)
-  ),
-
   # community data
   # imported in cleaning code
 
@@ -61,35 +39,12 @@ import_plan <- list(
     command = read_csv(download_sp_no)
   ),
 
-  # traits
-  tar_target(
-    name = raw_traits_no,
-    command = read_csv(download_traits_no)
-  ),
-
-  tar_target(
-    name = raw_traits_chem_no,
-    command = read_csv(download_traits_chem_no)
-  ),
-
   # Colorado Data
 
   # community
   tar_target(
     name = raw_community_co,
-    command = read_csv("data/Abundance_Data_2016_final.csv")
-  ),
-
-  # sp
-  tar_target(
-    name = raw_sp_co,
-    command = read_csv("data/Lorah_scrubbed_notes.csv")
-  ),
-
-  # trait
-  tar_target(
-    name = raw_trait_co,
-    command = read_csv("data/rmbl_trait_data_master.csv")
+    command = read_excel(download_community_co)
   ),
 
   # meta
@@ -118,17 +73,6 @@ import_plan <- list(
   tar_target(
     name = raw_community_sa,
     command = read_csv(download_community_sa)
-  ),
-
-  # trait data
-  tar_target(
-    name = raw_traits_sa,
-    command = read_csv(download_traits_sa)
-  ),
-
-  tar_target(
-    name = raw_traits_chem_sa,
-    command = read_csv(download_traits_chem_sa)
   ),
 
   # meta data
@@ -200,10 +144,10 @@ import_plan <- list(
     }
   ),
 
-  # import hourly climate data
+  # import climate data
   tar_target(
-    name = hourly_climate_raw,
-    command = read_csv("data/PFTC_downscaled_climate.csv")
+    name = climate_raw,
+    command = read_csv("data/downscaled_climate.csv")
   )
 
 )

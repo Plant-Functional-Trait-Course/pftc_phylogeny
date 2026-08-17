@@ -3,18 +3,6 @@
 download_plan <- list(
 
   # Svalbard Data
-  # trait data
-  tar_target(
-    name = download_traits_sv,
-    command = get_file(
-      node = "smbqh",
-      file = "PFTC4_Svalbard_2018_Gradient_Traits.csv",
-      path = "data/",
-      remote_path = "Traits"
-    ),
-    format = "file"
-  ),
-
   # community data
   tar_target(
     name = download_community_sv,
@@ -28,18 +16,6 @@ download_plan <- list(
   ),
 
   # Peru Data
-  # trait data
-  tar_target(
-    name = download_traits_pe,
-    command = get_file(
-      node = "gs8u6",
-      file = "PFTC3-Puna-PFTC5_Peru_2018-2020_FunctionalTraits_clean.csv",
-      path = "data/",
-      remote_path = "traits"
-    ),
-    format = "file"
-  ),
-
   # community data
   tar_target(
     name = download_community_pe,
@@ -53,28 +29,6 @@ download_plan <- list(
   ),
 
   # China Data
-  # trait data
-  tar_target(
-    name = download_traits_leaf_ch,
-    command = get_file(
-      node = "f3knq",
-      file = "PFTC1.2_China_2015_2016_LeafTraits.csv",
-      path = "data/",
-      remote_path = "Traits"
-    ),
-    format = "file"
-  ),
-  tar_target(
-    name = download_traits_chem_ch,
-    command = get_file(
-      node = "f3knq",
-      file = "PFTC1.2_China_2015_2016_ChemicalTraits.csv",
-      path = "data/",
-      remote_path = "Traits"
-    ),
-    format = "file"
-  ),
-
   # community data
   tar_target(
     name = download_community_ch,
@@ -128,34 +82,29 @@ download_plan <- list(
     format = "file"
   ),
 
-  # traits
-  tar_target(
-    name = download_traits_no,
-    command = get_file(
-      node = "fcbw4",
-      file = "PFTC6_clean_ElevationGradient_GlobalChangeExperiment_morphological_traits_2022.csv", # nolint: line_length_linter.
-      path = "data",
-      remote_path = "i. trait_data"
-    ),
-    format = "file"
-  ),
-
-  # chemical traits (elevation gradient / global change experiment)
-  tar_target(
-    name = download_traits_chem_no,
-    command = get_file(
-      node = "fcbw4",
-      file = "PFTC6_clean_ElevationGradient_GlobalChangeExperiment_chemical_traits_2022.csv", # nolint: line_length_linter.
-      path = "data",
-      remote_path = "i. trait_data"
-    ),
-    format = "file"
-  ),
-
   # meta data
   tar_target(
     name = metaTurfID_no,
     command = create_threed_meta_data()
+  ),
+
+  # Colorado Data
+  # community data from Google Drive folder:
+  # https://drive.google.com/drive/folders/1P-ND3-V0SSN7kgB2ia5UW5wB0nkZkvE5
+  tar_target(
+    name = download_community_co,
+    command = {
+      dest <- "data/RMBL_2022_abundance.xlsx"
+      dir.create("data", showWarnings = FALSE)
+      googledrive::drive_deauth()
+      googledrive::drive_download(
+        file = googledrive::as_id("1c9RP3-BBLrfIjiODFrKSQmrb3e0QJCEP"),
+        path = dest,
+        overwrite = TRUE
+      )
+      dest
+    },
+    format = "file"
   ),
 
   # South Africa Data
@@ -167,30 +116,6 @@ download_plan <- list(
       file = "i_PFTC7_clean_elevationgradient_community_2023.csv",
       path = "data",
       remote_path = "i_plant_community_composition"
-    ),
-    format = "file"
-  ),
-
-  # trait data
-  tar_target(
-    name = download_traits_sa,
-    command = get_file(
-      node = "hk2cy",
-      file = "iv_PFTC7_clean_elevationgradient_traits_2023.csv",
-      path = "data/",
-      remote_path = "iv_aboveground_traits"
-    ),
-    format = "file"
-  ),
-
-  # chemical traits
-  tar_target(
-    name = download_traits_chem_sa,
-    command = get_file(
-      node = "hk2cy",
-      file = "iv_PFTC7_clean_elevationgradient_chemical_traits_2023.csv",
-      path = "data/",
-      remote_path = "iv_aboveground_traits"
     ),
     format = "file"
   ),
