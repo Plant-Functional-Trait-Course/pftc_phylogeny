@@ -12,8 +12,8 @@ transformation_plan <- list(
 
   # Hourly PFTC extract with community keys (one row per plot x timestep)
   tar_target(
-    name = hourly_climate,
-    command = hourly_climate_raw |>
+    name = climate,
+    command = climate_raw |>
       downscaled_climate_add_site_keys() |>
       filter(!is.na(site), !is.na(plot_id))
   ),
