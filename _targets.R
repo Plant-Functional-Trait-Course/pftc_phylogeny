@@ -25,7 +25,7 @@ combined_plan <- c(
   download_plan,
   import_plan,
   cleaning_plan,
-  transformation_plan,
+  transformation_plan
   # si_figures_plan#,
   # manuscript_plan
 )
