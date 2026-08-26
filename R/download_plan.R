@@ -49,14 +49,21 @@ download_plan <- list(
   ),
 
   # Norway Data
-  # vegetation
+  # Three-D community cover from Zenodo
+  # https://zenodo.org/records/17301125
   tar_target(
     name = download_community_no,
-    command = get_file(
-      node = "pk4bg",
-      file = "7_Three-D_clean_cover_2019-2022.csv",
-      path = "data"
-    ),
+    command = {
+      dest <- "data/vii_Three-D_clean_community_cover_2019-2022.csv"
+      dir.create("data", showWarnings = FALSE)
+      download.file(
+        url = "https://zenodo.org/records/17301125/files/vii_Three-D_clean_community_cover_2019-2022.csv?download=1",
+        destfile = dest,
+        mode = "wb",
+        quiet = TRUE
+      )
+      dest
+    },
     format = "file"
   ),
 
@@ -86,14 +93,21 @@ download_plan <- list(
     },
     format = "file"
   ),
-
+  # Three-D species list from Zenodo
+  # https://zenodo.org/records/17301125
   tar_target(
     name = download_sp_no,
-    command = get_file(
-      node = "pk4bg",
-      file = "7_Three-D_clean_taxonomy.csv",
-      path = "data"
-    ),
+    command = {
+      dest <- "data/vii_Three-D_clean_species_list.csv"
+      dir.create("data", showWarnings = FALSE)
+      download.file(
+        url = "https://zenodo.org/records/17301125/files/vii_Three-D_clean_species_list.csv?download=1",
+        destfile = dest,
+        mode = "wb",
+        quiet = TRUE
+      )
+      dest
+    },
     format = "file"
   ),
 

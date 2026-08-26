@@ -54,13 +54,14 @@ renv/sandbox/
 
 # data files
 *.csv
-!data/metaCH.csv
 *.xlsx
 *.bib
 *.pdf
 *.rds
 data/*
+# keep small shared inputs in git (exceptions must come after data/*)
 !data/metaCH.csv
+!data/downscaled_climate.csv
 WorldClimData/*
 trackdown/*
 Manuscript/google.R
