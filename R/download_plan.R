@@ -72,6 +72,21 @@ download_plan <- list(
     ),
     format = "file"
   ),
+  # extract the sqlite database from the seedclim zip
+  tar_target(
+    name = seedclim_db,
+    command = {
+      contents <- unzip(download_community_no2, list = TRUE)
+      db_file <- contents$Name[grepl("[.]sqlite$", contents$Name)][1]
+      if (is.na(db_file)) {
+        stop("No .sqlite file found in ", download_community_no2)
+      }
+      unzip(download_community_no2, files = db_file, exdir = "data", junkpaths = TRUE)
+      file.path("data", basename(db_file))
+    },
+    format = "file"
+  ),
+
   tar_target(
     name = download_sp_no,
     command = get_file(
@@ -80,12 +95,6 @@ download_plan <- list(
       path = "data"
     ),
     format = "file"
-  ),
-
-  # meta data
-  tar_target(
-    name = metaTurfID_no,
-    command = create_threed_meta_data()
   ),
 
   # Colorado Data
@@ -117,6 +126,14 @@ download_plan <- list(
       path = "data",
       remote_path = "i_plant_community_composition"
     ),
+    format = "file"
+  ),
+
+  # Downscaled climate extract
+  # Supplied manually (not on OSF); see README for provenance.
+  tar_target(
+    name = download_climate,
+    command = "data/downscaled_climate.csv",
     format = "file"
   ),
 

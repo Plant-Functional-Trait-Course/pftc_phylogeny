@@ -9,7 +9,7 @@ library(tarchetypes) # Load other packages as needed.
 
 # Set target options:
 tar_option_set(
-  packages = c("dataDownloader", "tidyverse", "DBI", "RSQLite", "janitor", "vegan", "ggvegan", "readxl", "broom", "broom.mixed", "glue", "geodata", "terra", "MetBrewer", "maps", "performance", "quarto", "see", "rgee", "sf", "lmerTest", "gt", "ggridges", "patchwork", "betapart", "plotbiomes", "googledrive")
+  packages = c("dataDownloader", "tidyverse", "DBI", "RSQLite", "janitor", "vegan", "ggvegan", "readxl", "broom", "broom.mixed", "glue", "geodata", "terra", "MetBrewer", "maps", "performance", "quarto", "see", "rgee", "sf", "lmerTest", "gt", "ggridges", "patchwork", "betapart", "plotbiomes", "googledrive", "ape", "picante", "TNRS", "rtrees")
 )
 
 # tar_make_clustermq() is an older (pre-{crew}) way to do distributed computing
@@ -30,3 +30,6 @@ combined_plan <- c(
   diversity_plan,
   analysis_plan
 )
+
+# targets uses the value of the last expression as the pipeline.
+combined_plan

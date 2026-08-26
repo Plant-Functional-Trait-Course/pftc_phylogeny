@@ -19,14 +19,14 @@ cleaning_plan <- list(
   # import and clean community
   tar_target(
     name = community_ch,
-    command = import_clean_ch_community(raw_meta_ch)
+    command = import_clean_ch_community(raw_meta_ch, download_community_ch)
   ),
 
   # Norway
   # import and clean community
   tar_target(
     name = community_no,
-    command = clean_no_comm(raw_community_no, sp_list_no)
+    command = clean_no_comm(raw_community_no, sp_list_no, seedclim_db)
   ),
 
   # Colorado

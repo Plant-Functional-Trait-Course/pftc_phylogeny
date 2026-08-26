@@ -41,8 +41,9 @@ clean_pe_community <- function(raw_community_pe) {
 
 
 # Import and clean China community data
-import_clean_ch_community <- function(raw_meta_ch) {
-  con <- dbConnect(dbConnect(SQLite(), dbname = "data/transplant.sqlite"))
+import_clean_ch_community <- function(raw_meta_ch, transplant_db) {
+  con <- dbConnect(SQLite(), dbname = transplant_db)
+  on.exit(dbDisconnect(con), add = TRUE)
 
   taxon <- tbl(con, "taxon")
 
@@ -78,7 +79,7 @@ import_clean_ch_community <- function(raw_meta_ch) {
 
 
 # clean norway community
-clean_no_comm <- function(raw_community_no, sp_list_no) {
+clean_no_comm <- function(raw_community_no, sp_list_no, seedclim_db) {
   threeD_community <- raw_community_no |>
     # filter for 2022 and control treatments
     filter(
@@ -134,7 +135,8 @@ clean_no_comm <- function(raw_community_no, sp_list_no) {
     select(country, region, year, date, gradient, site, plot_id, taxon = species, cover, family, functional_group, elevation_m, latitude_n, longitude_e, ecosystem)
 
   # vcg plant community data
-  con <- dbConnect(SQLite(), dbname = "data/seedclim.sqlite")
+  con <- dbConnect(SQLite(), dbname = seedclim_db)
+  on.exit(dbDisconnect(con), add = TRUE)
 
   # dbListTables(con)
 

@@ -18,7 +18,15 @@ Our results suggest that community phylogenetic assembly varies strongly with el
 
 The pipeline downloads, imports, cleans, and analyzes data from multiple sources and ecosystems, including:
 - Community composition
-- Climate data (hourly climate extract, summarised to growing-season variables)
+- Climate data (downscaled extract, summarised per plot)
+
+Most inputs download automatically from OSF. Two are supplied manually and are
+not downloaded by the pipeline:
+
+| File | Used by | Notes |
+|---|---|---|
+| `data/metaCH.csv` | `download_meta_ch` | China site metadata; tracked in git |
+| `data/downscaled_climate.csv` | `download_climate` | Downscaled climate extract; **not** in the repo, must be placed by hand |
 
 ## Pipeline Structure
 
@@ -26,7 +34,10 @@ The analysis is organized using the `targets` package, with plans for:
 - **Download:** Automated retrieval of raw data files
 - **Import:** Reading and initial formatting of data
 - **Cleaning:** Standardizing and filtering datasets
-- **Transformation:** Merging and calculating diversity indices
+- **Transformation:** Merging community data and joining downscaled climate
+- **Phylogeny:** Taxonomic harmonization (TNRS, against WCVP/WFO) and grafting the
+  pooled species list onto the GBOTB megatree with `rtrees`
+- **Diversity:** Phylogenetic diversity indices (MPD, MNTD, beta-MNTD)
 - **Analysis:** Statistical modeling and visualization
 
 Custom functions for cleaning and processing are located in `R/Functions/`.
@@ -36,16 +47,20 @@ Custom functions for cleaning and processing are located in `R/Functions/`.
 ### Prerequisites
 
 - R (>= 4.0)
-- R packages: `targets`, `tarchetypes`, `dataDownloader`, `tidyverse`, `DBI`, `RSQLite`, `janitor`, `vegan`, `ggvegan`, `readxl`, `broom`, `broom.mixed`, `glue`, `geodata`, `terra`, `MetBrewer`, `maps`, `performance`, `quarto`, `see`, `rgee`, `sf`, `lmerTest`, `gt`, `ggridges`, `patchwork`, `betapart`, and `plotbiomes` (as specified in `_targets.R`).
+- R packages: `targets`, `tarchetypes`, `dataDownloader`, `tidyverse`, `DBI`, `RSQLite`, `janitor`, `vegan`, `ggvegan`, `readxl`, `broom`, `broom.mixed`, `glue`, `geodata`, `terra`, `MetBrewer`, `maps`, `performance`, `quarto`, `see`, `rgee`, `sf`, `lmerTest`, `gt`, `ggridges`, `patchwork`, `betapart`, `plotbiomes`, `ape`, `picante`, `TNRS`, and `rtrees` (as specified in `_targets.R`).
 
 ### Running the Pipeline
 
 1. **Install dependencies** (in R):
+   The project uses [`renv`](https://rstudio.github.io/renv/). From a fresh
+   clone, restore the recorded library rather than installing by hand:
+
    ```r
-   install.packages(c("targets", "tarchetypes", "tidyverse", "DBI", "RSQLite", "janitor", "vegan", "ggvegan", "readxl", "broom", "broom.mixed", "glue", "geodata", "terra", "MetBrewer", "maps", "performance", "quarto", "see", "rgee", "sf", "lmerTest", "gt", "ggridges", "patchwork", "betapart"))
-   remotes::install_github("Between-the-Fjords/dataDownloader")
-   remotes::install_github("valentinitnelav/plotbiomes")
+   renv::restore()
    ```
+
+   `.Rprofile` sources `renv/activate.R`, so R will error on startup until the
+   project has been activated at least once (`renv::activate()`).
 
 2. **Run the pipeline** (from the project root):
    ```r
