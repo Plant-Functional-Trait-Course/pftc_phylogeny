@@ -88,11 +88,14 @@ taxon_rank <- function(x) {
 
 #' Distinct taxon list for the pooled community data.
 #'
-#' One row per normalized name, carrying the raw spellings it came from and the
-#' countries it was recorded in so unresolved names can be traced back.
+#' One row per normalized name AND country, carrying the raw spellings it came
+#' from so unresolved names can be traced back. The country is part of the key
+#' because partially identified taxa are region-specific: an unidentified
+#' `Carex sp` in China is not the same taxon as an unidentified `Carex sp` in
+#' Colorado, and [build_taxon_table()] gives them separate tips.
 #'
 #' @param community Merged community data with `country`, `taxon`.
-#' @return Tibble: `taxon_normalized`, `rank`, `raw_taxa`, `countries`, `n_records`.
+#' @return Tibble: `taxon_normalized`, `country`, `rank`, `raw_taxa`, `n_records`.
 build_species_list <- function(community) {
   community |>
     mutate(taxon_normalized = normalize_taxon_names(taxon)) |>
@@ -100,15 +103,14 @@ build_species_list <- function(community) {
       !is.na(taxon_normalized),
       !str_detect(taxon_normalized, regex(str_c(non_taxon_patterns, collapse = "|"), ignore_case = TRUE))
     ) |>
-    group_by(taxon_normalized) |>
+    group_by(taxon_normalized, country) |>
     summarise(
       raw_taxa = str_c(sort(unique(taxon)), collapse = " | "),
-      countries = str_c(sort(unique(country)), collapse = ","),
       n_records = n(),
       .groups = "drop"
     ) |>
     mutate(rank = taxon_rank(taxon_normalized)) |>
-    arrange(taxon_normalized)
+    arrange(taxon_normalized, country)
 }
 
 
@@ -123,13 +125,16 @@ build_species_list <- function(community) {
 #' @return The raw TNRS result joined to the submitted names.
 resolve_taxonomy <- function(species_list, sources = c("wcvp", "wfo")) {
   query <- species_list |>
-    mutate(
-      submitted = if_else(rank == "species", taxon_normalized, word(taxon_normalized, 1)),
-      id = as.character(row_number())
-    )
+    mutate(submitted = if_else(rank == "species", taxon_normalized, word(taxon_normalized, 1)))
+
+  # One API call per distinct name, not per taxon-country row: the same species
+  # recorded in four regions is one name to resolve.
+  names_to_resolve <- query |>
+    distinct(submitted) |>
+    mutate(id = as.character(row_number()))
 
   resolved <- TNRS::TNRS(
-    taxonomic_names = query |> select(id, submitted),
+    taxonomic_names = names_to_resolve |> select(id, submitted),
     sources = sources,
     classification = "wfo",
     mode = "resolve"
@@ -145,8 +150,10 @@ resolve_taxonomy <- function(species_list, sources = c("wcvp", "wfo")) {
     mutate(id = str_trim(id))
 
   query |>
-    left_join(resolved, by = "id") |>
-    select(-id)
+    left_join(
+      names_to_resolve |> left_join(resolved, by = "id") |> select(-id),
+      by = "submitted"
+    )
 }
 
 
@@ -160,9 +167,10 @@ resolve_taxonomy <- function(species_list, sources = c("wcvp", "wfo")) {
 #'
 #' @param taxonomy Output of [resolve_taxonomy()].
 #' @param min_score Minimum TNRS overall score to accept a species match.
-#' @return Tibble with one row per `taxon_normalized`, including `tip_label`,
-#'   `genus`, `family`, and a `match_status` of `accepted`, `genus_only`,
-#'   `family_only`, or `unresolved`.
+#' @return Tibble with one row per `taxon_normalized` and `country`, including
+#'   `tip_label`, `genus`, `family`, and a `match_status` of `accepted`,
+#'   `genus_only`, `family_only`, or `unresolved`. Genus- and family-level tips
+#'   carry a country suffix (`Carex_sp_ch`); species-level tips do not.
 build_taxon_table <- function(taxonomy, min_score = 0.8) {
   taxonomy |>
     mutate(
@@ -184,9 +192,15 @@ build_taxon_table <- function(taxonomy, min_score = 0.8) {
         rank == "family" ~ coalesce(family, word(taxon_normalized, 1)),
         TRUE ~ family
       ),
+      # Partially identified taxa are region-specific: `Carex sp` in China and
+      # `Carex sp` in Colorado are almost certainly different species, so they get
+      # separate tips and are grafted independently within Carex. Merging them
+      # would make the two regions share a species they do not share, inflating
+      # phylogenetic similarity between floras. Fully identified species keep a
+      # global name, so genuine shared species still count as shared.
       tip_label = case_when(
-        rank == "family" ~ str_c(word(taxon_normalized, 1), placeholder, sep = "_"),
-        rank == "genus" ~ str_c(genus, placeholder, sep = "_"),
+        rank == "family" ~ str_c(word(taxon_normalized, 1), placeholder, country, sep = "_"),
+        rank == "genus" ~ str_c(genus, placeholder, country, sep = "_"),
         matched ~ str_c(word(accepted_sp, 1), word(accepted_sp, 2), sep = "_"),
         TRUE ~ str_replace_all(taxon_normalized, "\\s+", "_")
       ),
@@ -198,11 +212,11 @@ build_taxon_table <- function(taxonomy, min_score = 0.8) {
       )
     ) |>
     select(
-      taxon_normalized, rank, raw_taxa, countries, n_records,
+      taxon_normalized, country, rank, raw_taxa, n_records,
       tip_label, accepted = accepted_sp, genus, family, match_status,
       tnrs_score = overall_score, tnrs_matched_name = name_matched
     ) |>
-    arrange(taxon_normalized)
+    arrange(taxon_normalized, country)
 }
 
 
@@ -304,8 +318,8 @@ attach_tip_labels <- function(community, taxon_table, phylogeny) {
     mutate(taxon_normalized = normalize_taxon_names(taxon)) |>
     left_join(
       taxon_table |>
-        select(taxon_normalized, tip_label, family_accepted = family, match_status),
-      by = "taxon_normalized"
+        select(taxon_normalized, country, tip_label, family_accepted = family, match_status),
+      by = join_by(taxon_normalized, country)
     ) |>
     filter(tip_label %in% phylogeny_tip_labels(phylogeny)) |>
     # `year` is part of the key: Peru resurveys the same plots in 2018-2020, and

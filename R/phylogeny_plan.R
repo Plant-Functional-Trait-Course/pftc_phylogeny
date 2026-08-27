@@ -40,10 +40,13 @@ phylogeny_plan <- list(
     command = attach_tip_labels(community, taxon_table, phylogeny)
   ),
 
-  # How many names resolved, by country and match status.
+  # How many names resolved, by match status. Counts distinct taxa, not rows:
+  # taxon_table is keyed by taxon AND country, so a species recorded in four
+  # regions occupies four rows but is one taxon.
   tar_target(
     name = taxonomy_summary,
     command = taxon_table |>
+      distinct(taxon_normalized, match_status) |>
       count(match_status, name = "n_taxa") |>
       mutate(prop = n_taxa / sum(n_taxa))
   )
