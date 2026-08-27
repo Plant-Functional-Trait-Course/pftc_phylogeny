@@ -220,25 +220,36 @@ resolve_taxonomy <- function(names, sources = c("wcvp", "wfo")) {
 }
 
 
-#' Resolve names, reusing a per-name cache and querying only what is new.
+#' Bring the on-disk taxonomy lookup up to date and return its path.
 #'
-#' The cache is keyed on the submitted name, which is the only thing name
-#' resolution actually depends on, so it stays valid across any change to the
-#' community data. Only names missing from the cache are sent to the API, so
-#' adding one species costs one lookup rather than re-resolving everything.
+#' The lookup is keyed on the submitted name, which is the only thing name
+#' resolution depends on, so it stays valid across any change to the community
+#' data. Only names missing from it are sent to the API, so adding one species
+#' costs one lookup rather than re-resolving everything.
 #'
-#' Only names the API actually answered for are written to the cache. A partial
-#' response therefore leaves the unanswered names uncached and they are retried
-#' next run, rather than being stored as permanent empty results.
+#' The file is tracked in git. TNRS has been unreliable, and a committed lookup
+#' means a fresh clone can build the phylogeny with no network access at all.
+#' It also pins the taxonomy: results do not shift when WCVP/WFO publish
+#' revisions. The cost is that genuine upstream corrections are only picked up
+#' when someone sets `refresh = TRUE`, which is the right trade for an analysis
+#' that has to stay reproducible.
+#'
+#' Only names the API actually answered for are written. A partial response
+#' therefore leaves the unanswered names absent and they are retried next run,
+#' rather than being stored as permanent empty results.
+#'
+#' Declared as a `format = "file"` target so targets hashes the file itself:
+#' pulling a colleague's updated lookup, or correcting a row by hand,
+#' invalidates the downstream targets instead of being silently ignored.
 #'
 #' @param names Character vector, from [taxon_names_to_resolve()].
-#' @param cache_path Path to the CSV cache file.
-#' @param refresh If `TRUE`, ignore the cache and re-resolve every name.
+#' @param cache_path Path to the CSV lookup.
+#' @param refresh If `TRUE`, ignore the file and re-resolve every name.
 #' @param sources TNRS source databases, passed to [resolve_taxonomy()].
-#' @return Tibble with one row per name in `names` that could be resolved.
-load_or_resolve_taxonomy <- function(
+#' @return `cache_path`, so the target can be `format = "file"`.
+update_taxonomy_cache <- function(
     names,
-    cache_path = "data/cache/taxonomy_tnrs.csv",
+    cache_path = "data/taxonomy_tnrs.csv",
     refresh = FALSE,
     sources = c("wcvp", "wfo")) {
   names <- unique(names[!is.na(names) & nzchar(names)])
@@ -260,14 +271,33 @@ load_or_resolve_taxonomy <- function(
   missing <- setdiff(names, cached$submitted)
   if (length(missing) > 0) {
     message("TNRS: resolving ", length(missing), " new name(s); ",
-            length(names) - length(missing), " reused from cache.")
+            length(names) - length(missing), " reused from the committed lookup.")
     fresh <- resolve_taxonomy(missing, sources = sources)
-    cached <- bind_rows(cached, fresh) |> distinct(submitted, .keep_all = TRUE)
-    dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
-    readr::write_csv(cached, cache_path)
+    cached <- bind_rows(cached, fresh)
   }
 
-  cached |> filter(submitted %in% names)
+  if (length(missing) > 0 || !file.exists(cache_path)) {
+    dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
+    cached |>
+      distinct(submitted, .keep_all = TRUE) |>
+      arrange(submitted) |>
+      readr::write_csv(cache_path)
+  }
+
+  cache_path
+}
+
+
+#' Read the taxonomy lookup, restricted to the names currently in play.
+#'
+#' @param cache_path Path returned by [update_taxonomy_cache()].
+#' @param names Character vector, from [taxon_names_to_resolve()].
+#' @return Tibble with one row per resolvable name, columns as in
+#'   [tnrs_cache_cols].
+read_taxonomy_cache <- function(cache_path, names) {
+  readr::read_csv(cache_path, col_types = tnrs_cache_cols) |>
+    filter(submitted %in% names) |>
+    arrange(submitted)
 }
 
 

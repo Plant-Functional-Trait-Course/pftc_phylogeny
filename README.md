@@ -20,13 +20,35 @@ The pipeline downloads, imports, cleans, and analyzes data from multiple sources
 - Community composition
 - Climate data (downscaled extract, summarised per plot)
 
-Most inputs download automatically from OSF. Two are supplied manually and are
-not downloaded by the pipeline:
+Most inputs download automatically from OSF and Zenodo. Three small files are
+tracked in git instead, so a fresh clone has everything it needs:
 
 | File | Used by | Notes |
 |---|---|---|
-| `data/metaCH.csv` | `download_meta_ch` | China site metadata; tracked in git |
-| `data/downscaled_climate.csv` | `download_climate` | Downscaled climate extract; **not** in the repo, must be placed by hand |
+| `data/metaCH.csv` | `download_meta_ch` | China site metadata |
+| `data/downscaled_climate.csv` | `download_climate` | Downscaled climate extract, summarised per plot |
+| `data/taxonomy_tnrs.csv` | `taxonomy_cache` | TNRS name resolutions (see below) |
+
+### Taxonomy lookup
+
+`data/taxonomy_tnrs.csv` maps each submitted name to its accepted name and
+family, as resolved by [TNRS](https://tnrs.biendata.org/) against WCVP/WFO. It
+is committed on purpose, for two reasons:
+
+- **The phylogeny builds offline.** TNRS has been intermittently unavailable,
+  and without the lookup a clone cannot build `taxonomy` at all.
+- **The taxonomy is pinned.** Results do not shift when WCVP/WFO publish
+  revisions, so a rebuild months from now reproduces the same tree.
+
+The pipeline only ever queries TNRS for names that are missing from the file, so
+adding one species costs one lookup. To re-resolve everything against current
+TNRS — for instance to pick up genuine upstream corrections — set
+`refresh_taxonomy <- TRUE` in `R/phylogeny_plan.R`, run `tar_make()`, then set
+it back and commit the updated file.
+
+`taxonomy_cache` is a `format = "file"` target, so pulling a colleague's updated
+lookup, or correcting a row by hand, invalidates the phylogeny downstream of it
+rather than being silently ignored.
 
 ## Pipeline Structure
 

@@ -5,8 +5,8 @@
 # grafting (~30 min). Both are deliberately hung off the narrowest possible
 # input, so that re-cleaning the community data does not re-run them:
 #
-#   community_raw -> species_list  -> taxon_names -> taxonomy    (names only)
-#                                  \-> taxon_table -> tree_species -> phylogeny
+#   community_raw -> species_list -> taxon_names -> taxonomy_cache -> taxonomy
+#                                 \-> taxon_table -> tree_species -> phylogeny
 #
 # `taxon_names` is just the distinct character vector of names sent to TNRS, and
 # `tree_species` is just the distinct tips with their genus and family. Editing
@@ -14,9 +14,11 @@
 # species_list and taxon_table (both seconds), but leaves taxonomy and phylogeny
 # untouched unless the names or the tip set actually changed.
 
-# Set TRUE to force a fresh TNRS lookup on the next tar_make(), then set back
-# to FALSE. Normal rebuilds resolve only names missing from
-# data/cache/taxonomy_tnrs.csv.
+# Set TRUE to re-resolve every name against TNRS on the next tar_make(), then
+# set back to FALSE. Normal rebuilds resolve only names missing from
+# data/taxonomy_tnrs.csv, which is committed -- so a fresh clone needs no
+# network access, and the taxonomy stays pinned rather than drifting with
+# upstream WCVP/WFO revisions.
 refresh_taxonomy <- FALSE
 
 phylogeny_plan <- list(
@@ -36,15 +38,23 @@ phylogeny_plan <- list(
     command = taxon_names_to_resolve(species_list)
   ),
 
-  # Resolve names against WCVP/WFO. Depends only on taxon_names, so it re-runs
-  # only when the set of names changes -- and even then queries just the new
-  # ones, reusing data/cache/taxonomy_tnrs.csv for the rest.
+  # The committed name -> accepted-name lookup, brought up to date. Depends only
+  # on taxon_names, so TNRS is called only when the set of names changes -- and
+  # even then only for the new ones. Tracked as a file so that pulling someone
+  # else's updated lookup, or hand-correcting a row, invalidates what follows.
   tar_target(
-    name = taxonomy,
-    command = load_or_resolve_taxonomy(
+    name = taxonomy_cache,
+    command = update_taxonomy_cache(
       taxon_names,
       refresh = refresh_taxonomy
-    )
+    ),
+    format = "file"
+  ),
+
+  # The lookup restricted to the names currently in play.
+  tar_target(
+    name = taxonomy,
+    command = read_taxonomy_cache(taxonomy_cache, taxon_names)
   ),
 
   # raw name -> tip label lookup, plus match diagnostics.
