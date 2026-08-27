@@ -133,14 +133,35 @@ resolve_taxonomy <- function(species_list, sources = c("wcvp", "wfo")) {
     distinct(submitted) |>
     mutate(id = as.character(row_number()))
 
-  resolved <- TNRS::TNRS(
+  resolved_raw <- TNRS::TNRS(
     taxonomic_names = names_to_resolve |> select(id, submitted),
     sources = sources,
     classification = "wfo",
     mode = "resolve"
-  ) |>
+  )
+
+  if (is.null(resolved_raw) || !is.data.frame(resolved_raw) || nrow(resolved_raw) == 0) {
+    stop(
+      "TNRS name resolution failed: the API returned no results. ",
+      "Community and species_list completed successfully; only the external ",
+      "taxonomy lookup failed. This usually means a temporary TNRS outage or a ",
+      "network/curl problem (see TNRS package README). Try again later or check ",
+      "https://tnrs.biendata.org/."
+    )
+  }
+
+  resolved <- resolved_raw |>
     as_tibble() |>
-    clean_names() |>
+    clean_names()
+
+  if (!"id" %in% names(resolved)) {
+    stop(
+      "TNRS name resolution returned an unexpected response (missing id column). ",
+      "Try again later or check https://tnrs.biendata.org/."
+    )
+  }
+
+  resolved <- resolved |>
     mutate(id = as.character(id)) |>
     # TNRS de-duplicates its input: when several ids submit the same name it
     # returns ONE row whose id is the comma-collapsed list ("2,1"). Expand that
@@ -154,6 +175,41 @@ resolve_taxonomy <- function(species_list, sources = c("wcvp", "wfo")) {
       names_to_resolve |> left_join(resolved, by = "id") |> select(-id),
       by = "submitted"
     )
+}
+
+
+#' Load cached TNRS results or resolve names and write the cache.
+#'
+#' Reads `cache_path` when it already covers every name in `species_list`, so
+#' the pipeline can rebuild without calling TNRS again. Set `refresh = TRUE` to
+#' force a fresh API lookup and overwrite the cache file.
+#'
+#' @param species_list Output of [build_species_list()].
+#' @param cache_path Path to the CSV cache file.
+#' @param refresh If `TRUE`, ignore any existing cache and call TNRS.
+#' @param sources TNRS source databases, passed to [resolve_taxonomy()].
+#' @return The raw TNRS result joined to the submitted names.
+load_or_resolve_taxonomy <- function(
+    species_list,
+    cache_path = "data/cache/taxonomy_tnrs.csv",
+    refresh = FALSE,
+    sources = c("wcvp", "wfo")) {
+  submitted <- species_list |>
+    mutate(submitted = if_else(rank == "species", taxon_normalized, word(taxon_normalized, 1))) |>
+    distinct(submitted) |>
+    pull(submitted)
+
+  if (!refresh && file.exists(cache_path)) {
+    cached <- readr::read_csv(cache_path, show_col_types = FALSE)
+    if ("submitted" %in% names(cached) && all(submitted %in% cached$submitted)) {
+      return(cached)
+    }
+  }
+
+  resolved <- resolve_taxonomy(species_list, sources = sources)
+  dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
+  readr::write_csv(resolved, cache_path)
+  resolved
 }
 
 

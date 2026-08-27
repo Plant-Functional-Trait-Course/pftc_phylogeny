@@ -87,3 +87,4 @@ results_files/*
 
 # derived phylogeny/taxonomy artifacts
 output/
+data/cache/

@@ -13,5 +13,9 @@ targets::tar_make()
 # targets::tar_delete(community)
 # targets::tar_make(community)
 
+# refresh TNRS taxonomy (after setting refresh_taxonomy <- TRUE in R/phylogeny_plan.R)
+# targets::tar_invalidate(taxonomy)
+# targets::tar_make(names = "taxonomy")
+
 tar_load_everything()
 

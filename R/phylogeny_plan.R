@@ -1,6 +1,11 @@
 # Phylogeny plan
 # Harmonize taxonomy and assemble phylogeny.
 
+# Set TRUE to force a fresh TNRS lookup on the next tar_make(), then set back
+# to FALSE. Normal rebuilds reuse data/cache/taxonomy_tnrs.csv when it covers
+# the current species_list.
+refresh_taxonomy <- FALSE
+
 phylogeny_plan <- list(
 
   # Distinct, case-normalized taxon list across all six regions.
@@ -12,11 +17,15 @@ phylogeny_plan <- list(
     command = build_species_list(community_raw)
   ),
 
-  # Resolve names against WCVP/WFO. Hits the TNRS API, so this is the one
-  # target here that needs network access.
+  # Resolve names against WCVP/WFO. Uses a CSV cache so rebuilds do not need
+  # the TNRS API unless refresh_taxonomy is TRUE or the cache is missing or
+  # stale relative to species_list.
   tar_target(
     name = taxonomy,
-    command = resolve_taxonomy(species_list)
+    command = load_or_resolve_taxonomy(
+      species_list,
+      refresh = refresh_taxonomy
+    )
   ),
 
   # raw name -> tip label lookup, plus match diagnostics.
