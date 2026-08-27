@@ -59,8 +59,8 @@ Custom functions for cleaning and processing are located in `R/Functions/`.
    renv::restore()
    ```
 
-   `.Rprofile` sources `renv/activate.R`, so R will error on startup until the
-   project has been activated at least once (`renv::activate()`).
+   `.Rprofile` sources `renv/activate.R`, so starting R from the project root will
+   automatically activate the project environment (and may bootstrap `renv` if needed).
 
 2. **Run the pipeline** (from the project root):
    ```r
