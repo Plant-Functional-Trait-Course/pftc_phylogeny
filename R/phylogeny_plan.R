@@ -1,9 +1,22 @@
 # Phylogeny plan
 # Harmonize taxonomy and assemble phylogeny.
+#
+# The two expensive steps here are the TNRS lookup (~6 min) and the 100-replicate
+# grafting (~30 min). Both are deliberately hung off the narrowest possible
+# input, so that re-cleaning the community data does not re-run them:
+#
+#   community_raw -> species_list  -> taxon_names -> taxonomy    (names only)
+#                                  \-> taxon_table -> tree_species -> phylogeny
+#
+# `taxon_names` is just the distinct character vector of names sent to TNRS, and
+# `tree_species` is just the distinct tips with their genus and family. Editing
+# a cleaner so that record counts or country coverage change will rebuild
+# species_list and taxon_table (both seconds), but leaves taxonomy and phylogeny
+# untouched unless the names or the tip set actually changed.
 
 # Set TRUE to force a fresh TNRS lookup on the next tar_make(), then set back
-# to FALSE. Normal rebuilds reuse data/cache/taxonomy_tnrs.csv when it covers
-# the current species_list.
+# to FALSE. Normal rebuilds resolve only names missing from
+# data/cache/taxonomy_tnrs.csv.
 refresh_taxonomy <- FALSE
 
 phylogeny_plan <- list(
@@ -17,13 +30,19 @@ phylogeny_plan <- list(
     command = build_species_list(community_raw)
   ),
 
-  # Resolve names against WCVP/WFO. Uses a CSV cache so rebuilds do not need
-  # the TNRS API unless refresh_taxonomy is TRUE or the cache is missing or
-  # stale relative to species_list.
+  # The names, and nothing else. This target is what gates the TNRS call.
+  tar_target(
+    name = taxon_names,
+    command = taxon_names_to_resolve(species_list)
+  ),
+
+  # Resolve names against WCVP/WFO. Depends only on taxon_names, so it re-runs
+  # only when the set of names changes -- and even then queries just the new
+  # ones, reusing data/cache/taxonomy_tnrs.csv for the rest.
   tar_target(
     name = taxonomy,
     command = load_or_resolve_taxonomy(
-      species_list,
+      taxon_names,
       refresh = refresh_taxonomy
     )
   ),
@@ -31,7 +50,13 @@ phylogeny_plan <- list(
   # raw name -> tip label lookup, plus match diagnostics.
   tar_target(
     name = taxon_table,
-    command = build_taxon_table(taxonomy)
+    command = build_taxon_table(species_list, taxonomy)
+  ),
+
+  # The tips to graft, with genus and family. Gates the grafting step.
+  tar_target(
+    name = tree_species,
+    command = tree_species_list(taxon_table)
   ),
 
   # Graft onto the plant megatree. Species missing from the backbone are placed
@@ -39,7 +64,7 @@ phylogeny_plan <- list(
   # trees rather than one; diversity metrics must be computed per replicate.
   tar_target(
     name = phylogeny,
-    command = build_phylogeny(taxon_table, scenario = "random_below_basal", n_tree = 100)
+    command = build_phylogeny(tree_species, scenario = "random_below_basal", n_tree = 100)
   ),
 
   # Community data restricted to taxa that made it onto the tree.

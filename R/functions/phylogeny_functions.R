@@ -114,27 +114,65 @@ build_species_list <- function(community) {
 }
 
 
-#' Resolve the species list against WCVP/WFO with TNRS.
+#' Names to send to TNRS, as a plain sorted character vector.
 #'
-#' Genus- and family-level names are submitted as the bare genus or family, since
-#' TNRS cannot match an `sp7` placeholder; the placeholder is restored downstream
-#' by [build_taxon_table()].
+#' This is deliberately the *only* thing the `taxonomy` target depends on.
+#' `species_list` also carries `country`, `raw_taxa` and `n_records`, all of
+#' which change whenever the community data changes; hanging the TNRS call off
+#' it would re-query the API for edits that cannot possibly change a name.
+#' Reducing to the distinct name set means the resolution step re-runs only when
+#' the names themselves change.
+#'
+#' Genus- and family-level taxa submit the bare genus or family, since TNRS
+#' cannot match an `sp7` placeholder.
 #'
 #' @param species_list Output of [build_species_list()].
-#' @param sources TNRS source databases, in priority order.
-#' @return The raw TNRS result joined to the submitted names.
-resolve_taxonomy <- function(species_list, sources = c("wcvp", "wfo")) {
-  query <- species_list |>
-    mutate(submitted = if_else(rank == "species", taxon_normalized, word(taxon_normalized, 1)))
+#' @return Sorted character vector of distinct names.
+taxon_names_to_resolve <- function(species_list) {
+  species_list |>
+    mutate(submitted = if_else(rank == "species", taxon_normalized, word(taxon_normalized, 1))) |>
+    pull(submitted) |>
+    unique() |>
+    sort()
+}
 
-  # One API call per distinct name, not per taxon-country row: the same species
-  # recorded in four regions is one name to resolve.
-  names_to_resolve <- query |>
-    distinct(submitted) |>
-    mutate(id = as.character(row_number()))
+
+#' Columns kept from a TNRS response, with their types.
+#'
+#' Pinning an explicit subset keeps the cache readable and, more importantly,
+#' keeps its column types stable: a full 51-column TNRS frame written to CSV and
+#' read back changes type on 15 columns, so a cache hit and a cache miss would
+#' otherwise hand downstream code differently-typed objects.
+tnrs_cache_cols <- readr::cols(
+  submitted = readr::col_character(),
+  name_matched = readr::col_character(),
+  accepted_name = readr::col_character(),
+  accepted_species = readr::col_character(),
+  accepted_family = readr::col_character(),
+  overall_score = readr::col_double()
+)
+
+
+#' Resolve a vector of names against WCVP/WFO with TNRS.
+#'
+#' @param names Character vector of names, from [taxon_names_to_resolve()].
+#' @param sources TNRS source databases, in priority order.
+#' @return Tibble with one row per name TNRS answered for, columns as in
+#'   [tnrs_cache_cols]. Names the API did not answer for are absent rather than
+#'   present-and-empty, so callers can tell "not resolved" from "not asked".
+resolve_taxonomy <- function(names, sources = c("wcvp", "wfo")) {
+  names <- unique(names[!is.na(names) & nzchar(names)])
+  if (length(names) == 0) {
+    return(tibble(!!!setNames(
+      list(character(), character(), character(), character(), character(), double()),
+      names(tnrs_cache_cols$cols)
+    )))
+  }
+
+  query <- tibble(id = as.character(seq_along(names)), submitted = names)
 
   resolved_raw <- TNRS::TNRS(
-    taxonomic_names = names_to_resolve |> select(id, submitted),
+    taxonomic_names = as.data.frame(query),
     sources = sources,
     classification = "wfo",
     mode = "resolve"
@@ -164,52 +202,72 @@ resolve_taxonomy <- function(species_list, sources = c("wcvp", "wfo")) {
   resolved <- resolved |>
     mutate(id = as.character(id)) |>
     # TNRS de-duplicates its input: when several ids submit the same name it
-    # returns ONE row whose id is the comma-collapsed list ("2,1"). Expand that
-    # back to one row per submitted id, or every repeated submission -- which is
-    # every genus shared by more than one morphospecies -- joins to NA.
+    # returns ONE row whose id is the comma-collapsed list ("2,1").
     separate_longer_delim(id, delim = ",") |>
     mutate(id = str_trim(id))
 
+  keep <- names(tnrs_cache_cols$cols)
+  for (col in setdiff(keep, c("submitted", names(resolved)))) {
+    resolved[[col]] <- NA_character_
+  }
+
   query |>
-    left_join(
-      names_to_resolve |> left_join(resolved, by = "id") |> select(-id),
-      by = "submitted"
-    )
+    inner_join(resolved, by = "id") |>
+    select(-id) |>
+    mutate(overall_score = suppressWarnings(as.numeric(overall_score))) |>
+    select(all_of(keep)) |>
+    distinct(submitted, .keep_all = TRUE)
 }
 
 
-#' Load cached TNRS results or resolve names and write the cache.
+#' Resolve names, reusing a per-name cache and querying only what is new.
 #'
-#' Reads `cache_path` when it already covers every name in `species_list`, so
-#' the pipeline can rebuild without calling TNRS again. Set `refresh = TRUE` to
-#' force a fresh API lookup and overwrite the cache file.
+#' The cache is keyed on the submitted name, which is the only thing name
+#' resolution actually depends on, so it stays valid across any change to the
+#' community data. Only names missing from the cache are sent to the API, so
+#' adding one species costs one lookup rather than re-resolving everything.
 #'
-#' @param species_list Output of [build_species_list()].
+#' Only names the API actually answered for are written to the cache. A partial
+#' response therefore leaves the unanswered names uncached and they are retried
+#' next run, rather than being stored as permanent empty results.
+#'
+#' @param names Character vector, from [taxon_names_to_resolve()].
 #' @param cache_path Path to the CSV cache file.
-#' @param refresh If `TRUE`, ignore any existing cache and call TNRS.
+#' @param refresh If `TRUE`, ignore the cache and re-resolve every name.
 #' @param sources TNRS source databases, passed to [resolve_taxonomy()].
-#' @return The raw TNRS result joined to the submitted names.
+#' @return Tibble with one row per name in `names` that could be resolved.
 load_or_resolve_taxonomy <- function(
-    species_list,
+    names,
     cache_path = "data/cache/taxonomy_tnrs.csv",
     refresh = FALSE,
     sources = c("wcvp", "wfo")) {
-  submitted <- species_list |>
-    mutate(submitted = if_else(rank == "species", taxon_normalized, word(taxon_normalized, 1))) |>
-    distinct(submitted) |>
-    pull(submitted)
+  names <- unique(names[!is.na(names) & nzchar(names)])
 
+  cached <- NULL
   if (!refresh && file.exists(cache_path)) {
-    cached <- readr::read_csv(cache_path, show_col_types = FALSE)
-    if ("submitted" %in% names(cached) && all(submitted %in% cached$submitted)) {
-      return(cached)
+    cached <- tryCatch(
+      readr::read_csv(cache_path, col_types = tnrs_cache_cols),
+      error = function(e) NULL
+    )
+    if (!is.null(cached) && !"submitted" %in% base::names(cached)) {
+      cached <- NULL
     }
   }
+  if (is.null(cached)) {
+    cached <- resolve_taxonomy(character(), sources = sources)
+  }
 
-  resolved <- resolve_taxonomy(species_list, sources = sources)
-  dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
-  readr::write_csv(resolved, cache_path)
-  resolved
+  missing <- setdiff(names, cached$submitted)
+  if (length(missing) > 0) {
+    message("TNRS: resolving ", length(missing), " new name(s); ",
+            length(names) - length(missing), " reused from cache.")
+    fresh <- resolve_taxonomy(missing, sources = sources)
+    cached <- bind_rows(cached, fresh) |> distinct(submitted, .keep_all = TRUE)
+    dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
+    readr::write_csv(cached, cache_path)
+  }
+
+  cached |> filter(submitted %in% names)
 }
 
 
@@ -221,14 +279,21 @@ load_or_resolve_taxonomy <- function(
 #' genus- and family-level taxa keeping their morphospecies suffix
 #' (`Carex_sp7`, `Asteraceae_sp1`).
 #'
-#' @param taxonomy Output of [resolve_taxonomy()].
+#' Joining happens here rather than inside the resolution step so that
+#' `taxonomy` stays a pure name-to-name lookup: record counts and country
+#' coverage change often, names rarely.
+#'
+#' @param species_list Output of [build_species_list()].
+#' @param taxonomy Output of [load_or_resolve_taxonomy()], keyed on `submitted`.
 #' @param min_score Minimum TNRS overall score to accept a species match.
 #' @return Tibble with one row per `taxon_normalized` and `country`, including
 #'   `tip_label`, `genus`, `family`, and a `match_status` of `accepted`,
 #'   `genus_only`, `family_only`, or `unresolved`. Genus- and family-level tips
 #'   carry a country suffix (`Carex_sp_ch`); species-level tips do not.
-build_taxon_table <- function(taxonomy, min_score = 0.8) {
-  taxonomy |>
+build_taxon_table <- function(species_list, taxonomy, min_score = 0.8) {
+  species_list |>
+    mutate(submitted = if_else(rank == "species", taxon_normalized, word(taxon_normalized, 1))) |>
+    left_join(taxonomy, by = "submitted") |>
     mutate(
       matched = !is.na(accepted_species) & accepted_species != "" &
         coalesce(overall_score, 0) >= min_score,
@@ -276,6 +341,30 @@ build_taxon_table <- function(taxonomy, min_score = 0.8) {
 }
 
 
+#' The distinct set of tips to graft, with the genus and family rtrees needs.
+#'
+#' Split out from [build_taxon_table()] so the 30-minute grafting step depends
+#' only on the species going into the tree. `taxon_table` also carries
+#' `n_records` and `raw_taxa`, which shift whenever anyone re-cleans the
+#' community data; without this reduction the tree would rebuild for edits that
+#' cannot change its topology.
+#'
+#' @param taxon_table Output of [build_taxon_table()].
+#' @return Data frame with `species`, `genus`, `family` for [build_phylogeny()].
+tree_species_list <- function(taxon_table) {
+  taxon_table |>
+    distinct(tip_label, genus, family) |>
+    filter(!is.na(tip_label), !is.na(genus) | !is.na(family)) |>
+    transmute(
+      species = tip_label,
+      genus = coalesce(genus, word(tip_label, 1, sep = fixed("_"))),
+      family = coalesce(family, "")
+    ) |>
+    arrange(species) |>
+    as.data.frame()
+}
+
+
 #' Graft the species list onto the plant megatree with rtrees.
 #'
 #' Species absent from the backbone are grafted below the basal node of their
@@ -286,26 +375,18 @@ build_taxon_table <- function(taxonomy, min_score = 0.8) {
 #'
 #' `scenario = "at_basal_node"` is deterministic, so `n_tree` is ignored there.
 #'
-#' @param taxon_table Output of [build_taxon_table()].
+#' @param tree_species Output of [tree_species_list()].
 #' @param scenario rtrees grafting scenario.
 #' @param n_tree Number of replicate graftings.
 #' @param seed RNG seed, so the replicate set is reproducible.
 #' @return A `multiPhylo` of length `n_tree` (or 1), tips labelled with
 #'   `tip_label` values. Tip sets are identical across replicates; only the
 #'   placement of grafted species differs.
-build_phylogeny <- function(taxon_table,
+build_phylogeny <- function(tree_species,
                             scenario = "random_below_basal",
                             n_tree = 100,
                             seed = 1) {
-  sp_list <- taxon_table |>
-    distinct(tip_label, genus, family) |>
-    filter(!is.na(tip_label), !is.na(genus) | !is.na(family)) |>
-    transmute(
-      species = tip_label,
-      genus = coalesce(genus, word(tip_label, 1, sep = fixed("_"))),
-      family = coalesce(family, "")
-    ) |>
-    as.data.frame()
+  sp_list <- tree_species
 
   # rtrees carries its own genus -> family classification. Use it to fill
   # families TNRS did not supply (recently erected genera, mostly) so those taxa
