@@ -147,7 +147,7 @@ import_plan <- list(
   # import climate data
   tar_target(
     name = climate_raw,
-    command = read_csv("data/downscaled_climate.csv")
+    command = read_csv(download_climate)
   )
 
 )

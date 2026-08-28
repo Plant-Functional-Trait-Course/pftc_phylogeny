@@ -42,10 +42,13 @@ vignettes/*.pdf
 *_targets/
 
 # renv
+# renv/activate.R and renv/settings.json are tracked on purpose: .Rprofile
+# sources activate.R, so a clone without it errors on R startup.
 renv/library/
 renv/staging/
-renv/.gitignore
-renv/activate.R
+renv/local/
+renv/cellar/
+renv/sandbox/
 
 # quarto
 
@@ -59,6 +62,9 @@ data/*
 # keep small shared inputs in git (exceptions must come after data/*)
 !data/metaCH.csv
 !data/downscaled_climate.csv
+# TNRS name resolutions, committed so the phylogeny builds without network
+# access and the taxonomy stays pinned to what the analysis actually used
+!data/taxonomy_tnrs.csv
 WorldClimData/*
 trackdown/*
 Manuscript/google.R
@@ -81,3 +87,6 @@ Manuscript/google.R
 results_files/*
 
 *.DS_Store
+
+# derived phylogeny/taxonomy artifacts
+output/

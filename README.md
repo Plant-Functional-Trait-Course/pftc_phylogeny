@@ -18,7 +18,37 @@ Our results suggest that community phylogenetic assembly varies strongly with el
 
 The pipeline downloads, imports, cleans, and analyzes data from multiple sources and ecosystems, including:
 - Community composition
-- Climate data (hourly climate extract, summarised to growing-season variables)
+- Climate data (downscaled extract, summarised per plot)
+
+Most inputs download automatically from OSF and Zenodo. Three small files are
+tracked in git instead, so a fresh clone has everything it needs:
+
+| File | Used by | Notes |
+|---|---|---|
+| `data/metaCH.csv` | `download_meta_ch` | China site metadata |
+| `data/downscaled_climate.csv` | `download_climate` | Downscaled climate extract, summarised per plot |
+| `data/taxonomy_tnrs.csv` | `taxonomy_cache` | TNRS name resolutions (see below) |
+
+### Taxonomy lookup
+
+`data/taxonomy_tnrs.csv` maps each submitted name to its accepted name and
+family, as resolved by [TNRS](https://tnrs.biendata.org/) against WCVP/WFO. It
+is committed on purpose, for two reasons:
+
+- **The phylogeny builds offline.** TNRS has been intermittently unavailable,
+  and without the lookup a clone cannot build `taxonomy` at all.
+- **The taxonomy is pinned.** Results do not shift when WCVP/WFO publish
+  revisions, so a rebuild months from now reproduces the same tree.
+
+The pipeline only ever queries TNRS for names that are missing from the file, so
+adding one species costs one lookup. To re-resolve everything against current
+TNRS — for instance to pick up genuine upstream corrections — set
+`refresh_taxonomy <- TRUE` in `R/phylogeny_plan.R`, run `tar_make()`, then set
+it back and commit the updated file.
+
+`taxonomy_cache` is a `format = "file"` target, so pulling a colleague's updated
+lookup, or correcting a row by hand, invalidates the phylogeny downstream of it
+rather than being silently ignored.
 
 ## Pipeline Structure
 
@@ -26,7 +56,10 @@ The analysis is organized using the `targets` package, with plans for:
 - **Download:** Automated retrieval of raw data files
 - **Import:** Reading and initial formatting of data
 - **Cleaning:** Standardizing and filtering datasets
-- **Transformation:** Merging and calculating diversity indices
+- **Transformation:** Merging community data and joining downscaled climate
+- **Phylogeny:** Taxonomic harmonization (TNRS, against WCVP/WFO) and grafting the
+  pooled species list onto the GBOTB megatree with `rtrees`
+- **Diversity:** Phylogenetic diversity indices (MPD, MNTD, beta-MNTD)
 - **Analysis:** Statistical modeling and visualization
 
 Custom functions for cleaning and processing are located in `R/Functions/`.
@@ -36,16 +69,20 @@ Custom functions for cleaning and processing are located in `R/Functions/`.
 ### Prerequisites
 
 - R (>= 4.0)
-- R packages: `targets`, `tarchetypes`, `dataDownloader`, `tidyverse`, `DBI`, `RSQLite`, `janitor`, `vegan`, `ggvegan`, `readxl`, `broom`, `broom.mixed`, `glue`, `geodata`, `terra`, `MetBrewer`, `maps`, `performance`, `quarto`, `see`, `rgee`, `sf`, `lmerTest`, `gt`, `ggridges`, `patchwork`, `betapart`, and `plotbiomes` (as specified in `_targets.R`).
+- R packages: `targets`, `tarchetypes`, `dataDownloader`, `tidyverse`, `DBI`, `RSQLite`, `janitor`, `vegan`, `ggvegan`, `readxl`, `broom`, `broom.mixed`, `glue`, `geodata`, `terra`, `MetBrewer`, `maps`, `performance`, `quarto`, `see`, `rgee`, `sf`, `lmerTest`, `gt`, `ggridges`, `patchwork`, `betapart`, `plotbiomes`, `ape`, `picante`, `TNRS`, and `rtrees` (as specified in `_targets.R`).
 
 ### Running the Pipeline
 
 1. **Install dependencies** (in R):
+   The project uses [`renv`](https://rstudio.github.io/renv/). From a fresh
+   clone, restore the recorded library rather than installing by hand:
+
    ```r
-   install.packages(c("targets", "tarchetypes", "tidyverse", "DBI", "RSQLite", "janitor", "vegan", "ggvegan", "readxl", "broom", "broom.mixed", "glue", "geodata", "terra", "MetBrewer", "maps", "performance", "quarto", "see", "rgee", "sf", "lmerTest", "gt", "ggridges", "patchwork", "betapart"))
-   remotes::install_github("Between-the-Fjords/dataDownloader")
-   remotes::install_github("valentinitnelav/plotbiomes")
+   renv::restore()
    ```
+
+   `.Rprofile` sources `renv/activate.R`, so starting R from the project root will
+   automatically activate the project environment (and may bootstrap `renv` if needed).
 
 2. **Run the pipeline** (from the project root):
    ```r
