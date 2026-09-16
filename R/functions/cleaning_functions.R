@@ -197,6 +197,9 @@ clean_no_comm <- function(raw_community_no, sp_list_no, seedclim_db) {
 
 
 # clean Colorado community
+# `cover` here is individual abundance counts (RMBL_2022_abundance.xlsx), not
+# percent cover. Relative cover is added later by [add_relative_cover()] so CO
+# is comparable to percent-cover sites for abundance-weighted analyses.
 clean_colorado_community <- function(raw_community_co, coords_co) {
   raw_community_co |>
     clean_names() |>
@@ -215,7 +218,8 @@ clean_colorado_community <- function(raw_community_co, coords_co) {
       region = "Rocky Mountains",
       ecosystem = "temperate",
       gradient = "C",
-      year = year(date)
+      year = year(date),
+      cover_unit = "abundance"
     ) |>
     select(-date_chr) |>
     mutate(
@@ -225,7 +229,43 @@ clean_colorado_community <- function(raw_community_co, coords_co) {
     ) |>
     filter(!is.na(cover), cover != 0) |>
     tidylog::left_join(coords_co) |>
-    select(country, region, year, date, gradient, site, plot_id, taxon, cover, elevation_m, latitude_n, longitude_e, ecosystem)
+    select(country, region, year, date, gradient, site, plot_id, taxon, cover, cover_unit, elevation_m, latitude_n, longitude_e, ecosystem)
+}
+
+
+#' Add within-plot relative cover (Arizona / TransPlantNetwork approach).
+#'
+#' For each plot × year, `rel_cover = cover / sum(cover)`. Raw `cover` is kept:
+#' percent cover for most countries, individual abundance for Colorado. Use
+#' `rel_cover` for abundance-weighted analyses so sites are comparable.
+#'
+#' Plot key matches [attach_tip_labels()]: country, gradient, site, plot_id, year
+#' (`gradient` is required because South African east/west aspects can share
+#' `plot_id`).
+#'
+#' @param community Community data with `cover` and plot/year columns.
+#' @return `community` plus `cover_unit`, `cover_sum`, and `rel_cover`.
+add_relative_cover <- function(community) {
+  if (!"cover_unit" %in% names(community)) {
+    community <- community |>
+      mutate(cover_unit = if_else(country == "co", "abundance", "percent"))
+  } else {
+    community <- community |>
+      mutate(
+        cover_unit = coalesce(
+          cover_unit,
+          if_else(country == "co", "abundance", "percent")
+        )
+      )
+  }
+
+  community |>
+    group_by(country, gradient, site, plot_id, year) |>
+    mutate(
+      cover_sum = sum(cover, na.rm = TRUE),
+      rel_cover = if_else(cover_sum > 0, cover / cover_sum, NA_real_)
+    ) |>
+    ungroup()
 }
 
 

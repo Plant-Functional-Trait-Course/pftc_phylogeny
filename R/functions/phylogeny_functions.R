@@ -480,6 +480,8 @@ phylogeny_tip_labels <- function(phylogeny) {
 #' @return One row per plot, year and tip: `community` plus `tip_label`,
 #'   `family_accepted`, `match_status`, and `taxa_merged` (the raw names that
 #'   collapsed into that tip), restricted to taxa present in `phylogeny`.
+#'   `rel_cover` is recomputed after collapsing so tip-level abundances still
+#'   sum to 1 within each plot × year.
 attach_tip_labels <- function(community, taxon_table, phylogeny) {
   community |>
     mutate(taxon_normalized = normalize_taxon_names(taxon)) |>
@@ -495,7 +497,8 @@ attach_tip_labels <- function(community, taxon_table, phylogeny) {
     summarise(
       cover = sum(cover, na.rm = TRUE),
       taxa_merged = str_c(sort(unique(taxon)), collapse = " | "),
-      across(!c(taxon, taxon_normalized, cover), first),
+      across(!c(taxon, taxon_normalized, cover, rel_cover, cover_sum), first),
       .groups = "drop"
-    )
+    ) |>
+    add_relative_cover()
 }

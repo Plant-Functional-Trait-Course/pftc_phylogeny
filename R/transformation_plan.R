@@ -4,10 +4,16 @@
 transformation_plan <- list(
 
   # COMMUNITY
-  # merge all communities (no climate yet)
+  # merge all communities (no climate yet) and add within-plot relative cover.
+  # Colorado `cover` is abundance counts; other sites are percent cover.
+  # `rel_cover` (= cover / plot total) makes abundance-weighted analyses comparable.
   tar_target(
     name = community_raw,
-    command = bind_rows(community_sv, community_pe, community_ch, community_no, community_co, community_sa)
+    command = bind_rows(
+      community_sv, community_pe, community_ch,
+      community_no, community_co, community_sa
+    ) |>
+      add_relative_cover()
   ),
 
   # Downscaled climate with community keys (one row per plot)
