@@ -50,6 +50,31 @@ it back and commit the updated file.
 lookup, or correcting a row by hand, invalidates the phylogeny downstream of it
 rather than being silently ignored.
 
+### Cover vs relative cover
+
+Community abundance is recorded differently across regions. Most sites use
+**percent cover** (roughly 0–100 per species). Colorado records **individual
+abundance counts** (`RMBL_2022_abundance.xlsx`), which are not percent cover
+and can exceed 100 for a single species.
+
+To make abundance-weighted analyses comparable, the pipeline follows the same
+approach used for Arizona in
+[TransPlantNetwork/transplant_network_data_cleaning](https://github.com/TransPlantNetwork/transplant_network_data_cleaning):
+keep the raw measurement and add within-plot relative cover.
+
+When `community_raw` is built, `add_relative_cover()` adds:
+
+| Column | Meaning |
+|---|---|
+| `cover` | Raw recorded value (percent cover, or abundance counts for Colorado) |
+| `cover_unit` | `"percent"` or `"abundance"` |
+| `cover_sum` | Sum of `cover` within plot × year (`country`, `gradient`, `site`, `plot_id`, `year`) |
+| `rel_cover` | `cover / cover_sum` (proportions that sum to 1 within each plot × year) |
+
+Use **`rel_cover`** for abundance-weighted diversity metrics (e.g. abundance-weighted
+MPD / MNTD). Presence/absence metrics can ignore cover. After tip labels are
+attached, `rel_cover` is recomputed so collapsed synonyms still sum to 1 per plot.
+
 ## Pipeline Structure
 
 The analysis is organized using the `targets` package, with plans for:
